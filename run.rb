@@ -7,10 +7,10 @@ dcards   = Array.new()
 pcards   = Array.new()
 
 def cardInfo(dcards, pcards)
-  puts "\nDealer\n" + String(dcards[0]) + " X"
-  puts "Player\n"
-  pcards.each { |x| print " "+x+" " }  
-  puts "(" + String(addCards(pcards)[0]) + ")"
+  puts "\nDealer: " + String(dcards[0]) + " X"
+  cardString = ""
+  pcards.each { |x| cardString = cardString +" "+x }
+  puts "Player:" + cardString  
   if addCards(pcards)[0] > 21 then
     puts "BUST. you lose"
     main()
@@ -63,11 +63,16 @@ def checkWinner(dcards, pcards) #return "d,p,t" (dealer,player,tie)
   end
 end
 
+def showDealerCards(dcards)
+  puts "\nDealers cards"
+  dcards.each { |x| puts x }
+end
+
 def dealerAI(dcards, pcards)
   dtotal = addCards(dcards)[0]
   while dtotal <= 16 do
     ncard = $shoe.pop
-    puts "Dealer hits. Got an "+ncard
+    puts ncard
     dcards.push(ncard)
     dtotal = addCards(dcards)[0]
     if dtotal > 21 then
@@ -83,8 +88,10 @@ end
 def payout(winner)
   #add double bet to player account if winner or orgional amt if tie.
   if winner == "p" then
+    puts "Player wins " + String($pbet*2)
     $pmoney = $pmoney + ($pbet*2)
   elsif winner == "t" then
+    puts "Player wins " + $pbet
     $pmoney = $pmoney + $pbet
   else
     #casino wins.  do nothing
@@ -92,11 +99,17 @@ def payout(winner)
 end
 
 def main() #every time main() is called a new game begins
+  if $pmoney == 0 then 
+    puts "GAME OVER"
+    exit 
+  end
   game_started = true
   while game_started == true do
     le = false
     while le == false do
-      puts "\n"+String($pmoney)+" credits avilable.\nMin bet: "+String($min_bet)
+      puts "\n"+String($pmoney)+" credits avilable.\n"
+      #puts "Min bet: "+String($min_bet)
+      print "Bet: "
       STDOUT.flush  
       $pbet = Integer(gets.chomp)
       if $pbet >= $min_bet and $pbet <= $pmoney then
@@ -127,7 +140,7 @@ def main() #every time main() is called a new game begins
       re = gets.chomp
       if re == "h" then
 	ncard = $shoe.pop
-        puts "Player hits.\nGot an "+ncard
+        puts "Player hits. Got a "+ncard
         pcards.push(ncard)
         checkWinner(dcards, pcards)
       elsif re == "s" then
