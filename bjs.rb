@@ -1,7 +1,7 @@
-#####################################
-# Ruby powered blackjack similator  #
-# Copywrite 2012 Cutty              #
-#####################################
+####################################
+# Ruby powered blackjack similator #
+# Copywrite 2012 Cutty S Mason     #
+####################################
 
 class Card #no point in keeping track of suite for now.
   def initialize(faceValue)
@@ -15,7 +15,7 @@ class Card #no point in keeping track of suite for now.
 			@value = Integer(faceValue)
     end
 	end
-	def getFacevalue
+	def faceValue
     @faceValue
 	end
 	def getValue
@@ -70,35 +70,51 @@ class Player #base class for dealer and AI
 	end
 	def win(bet)
     @cash = @cash + bet
+		puts "#{self.class} won"
 	end
-	def hit(card)
-		puts "#{self.class} hits gets a #{card.getFacevalue}"
-    @cards.push(card)
+	def hit(card) #return false if bust or 21, true if not
+		puts "#{self.class} hits gets a #{card.faceValue}"
+    @cards.push(card) 
+		if self.total > 21 then
+			puts "#{self.class} BUST"
+			return false
+		elsif self.total == 21 then
+      return false
+		else
+			return true
+		end
 	end
-	def getCards
+	def cards
 		@cards
 	end
 	def aces
 		i = 0
     @cards.each do |c|
-      if c.getFacevalue == "A" then 
+      if c.faceValue == "A" then 
 			  i = i + 1
 			end
 		end
 		return i
 	end
-	def totalHandValue(aces_min = 0)
+	def total_helper(big_first_ace)
 		total = 0
     @cards.each do |c|
-			if c.getFacevalue == "A" and aces_min>0 then
-        total = total + 1
-				aces_min = aces_min - 1
+			if c.faceValue == "A" and big_first_ace==true then
+        total = total + 11
+				big_first_ace = false
+			elsif c.faceValue == "A" and big_first_ace==false then
+				total = total + 1
 			else
         total = total + c.getValue
 			end
-			if total > 21 and aces_min < self.aces then
-			  self.totalHandValue(aces_min)
-			end
+		end
+		return total
+  end
+	def total
+		#start off with trying first ace as 11.
+    total = self.total_helper(true)
+		if total > 21 then
+			total = self.total_helper(false)
 		end
 		return total
 	end
@@ -113,18 +129,126 @@ end
 class Dealer < Player
 end
 
+class Hand
+  def initialize(game)
+    @game = game
+		@shoe = game.getShoe
+    @dealer = game.getDealer
+		@player = game.getPlayer
+		@players = game.getPlayers
+		@bet = nil
+		#discard all cards
+    @dealer.discard
+		@players.each do |x| x.discard end
+
+		#take bets
+		l=true
+		while l==true do
+		  puts "\nPlace your bet. You have #{@player.cash}"  
+      STDOUT.flush  
+      res = Integer(gets.chomp)
+      if res >= @game.minbet and res <= @game.maxbet and res <= @player.cash then
+			  @bet = res
+			  l=false
+		  else
+        puts "Invalid bet. Min:#{@game.minbet} Max:#{@game.maxbet}"
+		  end
+		end
+
+		#deal cards
+		2.times do @dealer.cards.push(@shoe.dealCard) end
+		@game.getPlayers.each do |x|
+		  2.times do x.cards.push(@shoe.dealCard) end
+	  end
+
+    #show players their cards and other and dealers
+    puts "Dealer   #{@dealer.cards[0].getValue}"
+		@players.each do |p|
+		  print "#{p.class} "
+	    p.cards.each do |x| print " #{x.getValue}" end
+	    puts "\n"
+		end
+
+		#TODO give each player oppturtunity to hit or stand    
+		l=true
+		while l==true do
+		  #check to see if we have 21
+      if @player.total == 21	then
+        #TODO AI players
+				l=false
+			end
+
+			if l==true then
+		    puts "(h)it or (s)tay?"
+        STDOUT.flush  
+        res = gets.chomp
+        if res == "h" then
+          l = @player.hit(@shoe.dealCard)		
+			  elsif res == "s" then
+          l = false
+			  end
+			end
+		end
+
+    #show dealers cards
+    print "Dealers hand: "
+	  @dealer.cards.each do |x| print " #{x.getValue}" end
+	  puts "\n"
+
+		dealerTurn()
+	end
+
+	def dealerTurn
+		if @dealer.total < 17 then
+			card = @shoe.dealCard
+      @dealer.hit(card)
+      self.dealerTurn
+		else
+      self.checkWinner
+		end
+	end
+	
+  def checkWinner #TODO check the AI players
+		d  = @dealer.total
+		p  = @player.total
+		da = @dealer.aces
+		pa = @player.aces
+	  if d == 21 and p == 21 then
+      if da == 1 and pa == 1 then
+			  puts "push"
+			elsif da == 1 and pa != 1 then
+        @player.lost(@bet)
+			elsif da != 1 and pa == 1 then
+				@player.win(@bet)
+			end
+		elsif d == p then
+			puts "push"
+		elsif p==21 and d < 21 then
+			#may get 2.5 times bet #FIXME
+			@player.win(@bet)
+		elsif p > d then
+      @player.win(@bet)
+	  elsif d > p then
+			@player.lost(@bet)
+		end
+		puts "Hand over, dealer:#{d} player:#{p}"
+	end
+
+end
+
 class Game
   def initialize(numAI = 0, numDecks = 1)
-		@minbet = 1
-		@maxbet = 100
-    @shoe = Shoe.new(numDecks)
-		@player = Player.new
+		@minbet  = 1
+		@maxbet  = 100
+    @shoe    = Shoe.new(numDecks)
+		@dealer  = Dealer.new
+		@player  = Player.new
 		@players = Array.new
 		@players.push(@player)
 		numAI.times do
       @players.push(AI.new)
 		end
-		@dealer = Dealer.new
+		self.playHands
 	end
 	def minbet
     @minbet
@@ -144,126 +268,19 @@ class Game
 	def getPlayers
 		@players
 	end
-end
+	def playHands
+    quit = false
+    until quit == true
+      hand = Hand.new(self)
 
-class Hand
-  def initialize(game)
-    @game = game
-		@shoe = game.getShoe
-    @dealer = game.getDealer
-		@player = game.getPlayer
-		@players = game.getPlayers
-		@bet = nil
-		#discard all cards
-    @dealer.discard
-		@players.each do |x| x.discard end
-
-		#take bets
-		l=true
-		while l==true do
-		  puts "Place your bet.  You have #{@player.cash}"  
-      STDOUT.flush  
-      res = Integer(gets.chomp)
-      if res >= @game.minbet and res <= @game.maxbet and res <= @player.cash then
-			  @bet = res
-			  l=false
-		  else
-        puts "Invalid bet. Min #{@game.minbet} Max #{@game.maxbet}"
-		  end
-		end
-
-		#deal cards
-		2.times do @dealer.getCards.push(@shoe.dealCard) end
-		@game.getPlayers.each do |x|
-		  2.times do x.getCards.push(@shoe.dealCard) end
+	    if self.getShoe.cardsLeft < 20 then #TODO find out what this actually is
+		    quit = true
+	    end
 	  end
-
-    #show players their cards and other and dealers
-    puts "Dealer   #{@dealer.getCards[0].getValue}"
-		@players.each do |p|
-		  print "#{p.class} "
-	    p.getCards.each do |x| print " #{x.getValue}" end
-	    puts "\n"
-		end
-
-		#TODO give each player oppturtunity to hit or stand    
-		l=true
-		while l==true do
-		  #check to see if we have 21
-      if @player.totalHandValue == 21	then
-        #TODO AI players
-				dealerTurn()
-				l=false
-			end
-			#check to see if we went over
-			if @player.totalHandValue > 21	then
-				puts "BUST"
-				dealerTurn()
-				l=false
-			end
-
-			if l==true then
-		    puts "(h)it or (s)tay?"
-        STDOUT.flush  
-        res = gets.chomp
-        if res == "h" then
-          @player.hit(@shoe.dealCard)		
-			  elsif res == "s" then
-          l=false
-			  end
-			end
-		end
-
-    #show dealers cards
-    print "Dealers hand: "
-	  @dealer.getCards.each do |x| print " #{x.getValue}" end
-	  puts "\n"
-
-		dealerTurn()
-	end
-
-	def dealerTurn
-    if @dealer.totalHandValue <= 17 then
-			card = @shoe.dealCard
-      @dealer.hit(card)
-      self.dealerTurn
-		else
-      self.checkWinner
-		end
-	end
-	
-  def checkWinner #TODO check the AI players
-		d = @dealer.totalHandValue
-		p = @player.totalHandValue
-	  if d == 21 and p == 21 then
-      if @dealer.aces == 1 and @player.aces == 1 then
-			  #push
-			elsif @dealer.aces == 1 and @player.aces != 1 then
-        @player.lost(@bet)
-			elsif @dealer.aces != 1 and @player.aces == 1 then
-				@player.win(@bet)
-			end
-		elsif d == p then
-			#push
-		elsif p==21 and d < 21 then
-			#may get 2.5 times bet #FIXME
-			@player.win(@bet)
-		elsif p > d then
-      @player.win(@bet)
-	  elsif d > p then
-			@player.lost(@bet)
-		end
-		puts "Hand over, dealer:#{d} player:#{p}"
-	end
-
-end
-
-game = Game.new(0,3)
-quit = false
-until quit == true
-  hand = Hand.new(game)
-
-	if game.getShoe.cardsLeft < 20 then #TODO find out what this actually is
-		quit = true
 	end
 end
+
+if @testing != true
+  game = Game.new(0,3)
+end
+
