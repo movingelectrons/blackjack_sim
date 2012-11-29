@@ -18,35 +18,33 @@ class Card #no point in keeping track of suite for now.
 	def faceValue
     @faceValue
 	end
-	def getValue
+	def value
     @value 
 	end
 end
 
 class Deck
   def initialize()
-    faceValues = %w(2 2 2 2 3 3 3 3 4 4 4 4 5 5 5 5 6 6 6 6 7 7 7 7 8 8 8 8 9 9 9 9 10 10 10 10 J J J J Q Q Q Q K K K K A A A A 2 2 2 2 3 3 3 3 4 4 4 4 5 5 5 5 6 6 6 6 7 7 7 7 8 8 8 8 9 9 9 9 10 10 10 10 J J J J Q Q Q Q K K K K A A A A 2 2 2 2 3 3 3 3 4 4 4 4 5 5 5 5 6 6 6 6 7 7 7 7 8 8 8 8 9 9 9 9 10 10 10 10 J J J J Q Q Q Q K K K K A A A A)
+    faceValues = %w(2 2 2 2 3 3 3 3 4 4 4 4 5 5 5 5 6 6 6 6 7 7 7 7 8 8 8 8 9 9 9 9 10 10 10 10 J J J J Q Q Q Q K K K K A A A A)
 		@cards = Array.new()
 		faceValues.each do |x|
       @cards.push(Card.new(x))
 		end
 	end
-  def getDeck
+  def cards
     @cards
 	end
 end
 
 class Shoe #composed of one or more decks
-  def initialize(numDecks)
+  def initialize(numDecks = 1)
 		@cards = Array.new()
     numDecks.times do
-      #get a deck and add all its cards to the shoe
       deck = Deck.new()
-      deck.getDeck.each do |x|
+      deck.cards.each do |x|
         @cards.push(x)
 			end
 		end
-		#shuffle them all
 		@cards.shuffle!
 	end
 	def dealCard
@@ -65,12 +63,16 @@ class Player #base class for dealer and AI
 	def cash
 	  @cash
 	end
+	def cards
+		@cards
+	end	
 	def lost(bet)
     @cash = @cash - bet
+		puts "#{self.class} lost #{bet}"
 	end
 	def win(bet)
     @cash = @cash + bet
-		puts "#{self.class} won"
+		puts "#{self.class} won #{bet}"
 	end
 	def hit(card) #return false if bust or 21, true if not
 		puts "#{self.class} hits gets a #{card.faceValue}"
@@ -84,9 +86,6 @@ class Player #base class for dealer and AI
 			return true
 		end
 	end
-	def cards
-		@cards
-	end
 	def aces
 		i = 0
     @cards.each do |c|
@@ -95,6 +94,17 @@ class Player #base class for dealer and AI
 			end
 		end
 		return i
+	end
+	def discard
+    @cards = Array.new
+	end	
+	def total
+		#start off with trying first ace as 11.
+    total = self.total_helper(true)
+		if total > 21 then
+			total = self.total_helper(false)
+		end
+		return total
 	end
 	def total_helper(big_first_ace)
 		total = 0
@@ -105,22 +115,11 @@ class Player #base class for dealer and AI
 			elsif c.faceValue == "A" and big_first_ace==false then
 				total = total + 1
 			else
-        total = total + c.getValue
+        total = total + c.value
 			end
 		end
 		return total
   end
-	def total
-		#start off with trying first ace as 11.
-    total = self.total_helper(true)
-		if total > 21 then
-			total = self.total_helper(false)
-		end
-		return total
-	end
-	def discard
-    @cards = Array.new
-	end
 end
 
 class AI < Player
@@ -132,10 +131,10 @@ end
 class Hand
   def initialize(game)
     @game = game
-		@shoe = game.getShoe
-    @dealer = game.getDealer
-		@player = game.getPlayer
-		@players = game.getPlayers
+		@shoe = game.shoe
+    @dealer = game.dealer
+		@player = game.player
+		@players = game.players
 		@bet = nil
 		#discard all cards
     @dealer.discard
@@ -144,9 +143,13 @@ class Hand
 		#take bets
 		l=true
 		while l==true do
-		  puts "\nPlace your bet. You have #{@player.cash}"  
-      STDOUT.flush  
-      res = Integer(gets.chomp)
+		  puts "\nPlace your bet. You have #{@player.cash}.  q to quit."  
+      res = @game.getInput("bet")
+			if res == "q" or res == "s" then 
+			  exit
+			else
+				res = Integer(res)
+			end
       if res >= @game.minbet and res <= @game.maxbet and res <= @player.cash then
 			  @bet = res
 			  l=false
@@ -157,19 +160,18 @@ class Hand
 
 		#deal cards
 		2.times do @dealer.cards.push(@shoe.dealCard) end
-		@game.getPlayers.each do |x|
+		@game.players.each do |x|
 		  2.times do x.cards.push(@shoe.dealCard) end
 	  end
 
     #show players their cards and other and dealers
-    puts "Dealer   #{@dealer.cards[0].getValue}"
+    puts "Dealer  #{@dealer.cards[0].faceValue} X"
 		@players.each do |p|
 		  print "#{p.class} "
-	    p.cards.each do |x| print " #{x.getValue}" end
+	    p.cards.each do |x| print " #{x.faceValue}" end
 	    puts "\n"
 		end
 
-		#TODO give each player oppturtunity to hit or stand    
 		l=true
 		while l==true do
 		  #check to see if we have 21
@@ -179,9 +181,8 @@ class Hand
 			end
 
 			if l==true then
-		    puts "(h)it or (s)tay?"
-        STDOUT.flush  
-        res = gets.chomp
+		    puts "(h)it or (s)tand?"
+        res = @game.getInput("hit")
         if res == "h" then
           l = @player.hit(@shoe.dealCard)		
 			  elsif res == "s" then
@@ -191,10 +192,9 @@ class Hand
 		end
 
     #show dealers cards
-    print "Dealers hand: "
-	  @dealer.cards.each do |x| print " #{x.getValue}" end
+    print "Dealer has "
+	  @dealer.cards.each do |x| print " #{x.faceValue}" end
 	  puts "\n"
-
 		dealerTurn()
 	end
 
@@ -231,13 +231,11 @@ class Hand
 	  elsif d > p then
 			@player.lost(@bet)
 		end
-		puts "Hand over, dealer:#{d} player:#{p}"
 	end
-
 end
 
 class Game
-  def initialize(numAI = 0, numDecks = 1)
+  def initialize(numAI = 0, numDecks = 1, testing = false)
 		@minbet  = 1
 		@maxbet  = 100
     @shoe    = Shoe.new(numDecks)
@@ -248,24 +246,37 @@ class Game
 		numAI.times do
       @players.push(AI.new)
 		end
+		@testing = testing #to automate user input
 		self.playHands
 	end
+	def getInput(ptype) #TODO see if can get rid of this
+    if @testing == true then
+      if ptype == "bet" then
+        "100"
+		  elsif ptype == "hit" then
+        "s"
+		  end
+    else
+		  STDOUT.flush
+      gets.chomp
+    end
+  end
 	def minbet
     @minbet
 	end
 	def maxbet
 		@maxbet
 	end
-  def getShoe
+  def shoe
     @shoe
 	end
-	def getPlayer
+	def player
 	  @player
 	end
-	def getDealer
+	def dealer
 		@dealer
 	end
-	def getPlayers
+	def players
 		@players
 	end
 	def playHands
@@ -273,14 +284,15 @@ class Game
     until quit == true
       hand = Hand.new(self)
 
-	    if self.getShoe.cardsLeft < 20 then #TODO find out what this actually is
-		    quit = true
+			#TODO find out what this actually is
+	    if self.shoe.cardsLeft < 20 or @player.cash < @maxbet then
+			  quit = true
 	    end
 	  end
 	end
 end
 
-if @testing != true
+if $testing != true
   game = Game.new(0,3)
 end
 
