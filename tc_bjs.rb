@@ -101,7 +101,7 @@ class TestBJS < Test::Unit::TestCase
 		end
 
 		should "dealers hand should be 17 or more" do
-      assert(@game.dealer.total > 17)
+      assert(@game.dealer.total >= 17)
 		end
 	end
 
@@ -139,6 +139,23 @@ class TestBJS < Test::Unit::TestCase
 			pcash = @game.player.cash
 			@hand.checkWinner
 			assert_equal(pcash-100, @game.player.cash)
+		end
+
+		should "determine dealer loser and pay player" do
+      @game.dealer.discard
+		  @game.players.each do |x| x.discard end
+			@game.dealer.cards.push(Card.new("4"))
+			@game.dealer.cards.push(Card.new("9"))
+			@game.dealer.cards.push(Card.new("A"))
+			@game.dealer.cards.push(Card.new("9"))
+			@game.player.cards.push(Card.new("9"))
+			@game.player.cards.push(Card.new("Q"))
+
+      assert_equal(@game.dealer.total, 23)
+      assert_equal(@game.player.total, 19)
+			pcash = @game.player.cash
+			@hand.checkWinner
+			assert_equal(pcash+100, @game.player.cash)
 		end		
 	end	
 '''

@@ -208,28 +208,33 @@ class Hand
 		end
 	end
 	
-  def checkWinner #TODO check the AI players
+  def checkWinner 
+		#TODO check the AI players
+    #FIXME if you win with 21 you may get 2.5 times bet
 		d  = @dealer.total
 		p  = @player.total
 		da = @dealer.aces
 		pa = @player.aces
-	  if d == 21 and p == 21 then
+    if d > 21 and p > 21 then
+		  puts "push"
+		elsif d > 21 and p <= 21 then
+      @player.win(@bet)
+		elsif p > 21 and d <= 21 then
+      @player.lose(@bet)
+		elsif d == 21 and p == 21 then
       if da == 1 and pa == 1 then
 			  puts "push"
-			elsif da == 1 and pa != 1 then
+			elsif da == 1 then
         @player.lost(@bet)
-			elsif da != 1 and pa == 1 then
+			elsif da != 1 then
 				@player.win(@bet)
 			end
-		elsif d == p then
-			puts "push"
-		elsif p==21 and d < 21 then
-			#may get 2.5 times bet #FIXME
-			@player.win(@bet)
 		elsif p > d then
       @player.win(@bet)
 	  elsif d > p then
-			@player.lost(@bet)
+			@player.lost(@bet)	
+		elsif d == p then
+			puts "push"
 		end
 	end
 end
