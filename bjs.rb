@@ -1,7 +1,7 @@
-####################################
-# Ruby powered blackjack similator #
-# Copywrite 2012 Cutty S Mason     #
-####################################
+#####################################
+# Ruby powered blackjack similator  #
+# Copywrite 2013 Jerome Stonebridge #
+#####################################
 
 class Card #no point in keeping track of suite for now.
   def initialize(faceValue)
@@ -66,7 +66,7 @@ class Player #base class for dealer and AI
 	def cards
 		@cards
 	end	
-	def lost(bet)
+	def lose(bet)
     @cash = @cash - bet
 		puts "#{self.class} lost #{bet}"
 	end
@@ -210,7 +210,7 @@ class Hand
 	
   def checkWinner 
 		#TODO check the AI players
-    #FIXME if you win with 21 you may get 2.5 times bet
+    #FIXME ? if you win with 21 you may get 2.5 times bet ? (make option? check casinos)
 		d  = @dealer.total
 		p  = @player.total
 		da = @dealer.aces
@@ -225,14 +225,14 @@ class Hand
       if da == 1 and pa == 1 then
 			  puts "push"
 			elsif da == 1 then
-        @player.lost(@bet)
+        @player.lose(@bet)
 			elsif da != 1 then
 				@player.win(@bet)
 			end
 		elsif p > d then
       @player.win(@bet)
 	  elsif d > p then
-			@player.lost(@bet)	
+			@player.lose(@bet)	
 		elsif d == p then
 			puts "push"
 		end
@@ -254,8 +254,8 @@ class Game
 		@testing = testing #to automate user input
 		self.playHands
 	end
-	def getInput(ptype) #TODO see if can get rid of this
-    if @testing == true then
+	def getInput(ptype)
+    if @testing == true then  #TODO ? get rid of this (currently necessary for testing)
       if ptype == "bet" then
         "100"
 		  elsif ptype == "hit" then
@@ -289,7 +289,7 @@ class Game
     until quit == true
       hand = Hand.new(self)
 
-			#TODO find out what this actually is
+			#TODO find out what this actually is (when does dealer resuffle the entire shoe)
 	    if self.shoe.cardsLeft < 20 or @player.cash < @maxbet then
 			  quit = true
 	    end
